@@ -12,7 +12,9 @@ class Gauge(tk.Frame):
     ss_mult = 3  # supersampling
     cut_bottom = 0.65  # 1 to not cut, 0.4 to cut 60% etc
     # cut_bottom = 1  # 1 to not cut, 0.4 to cut 60% etc
-    offset = 40
+    # offset = 35
+    base_size = 250
+    base_font_size = 16
 
     def __init__(
         self,
@@ -24,6 +26,7 @@ class Gauge(tk.Frame):
         showtext,
         font,
         textvariable,
+        textappend,
         box_length,
         arc_width,
         bg,
@@ -38,15 +41,28 @@ class Gauge(tk.Frame):
         self.var = variable or tk.DoubleVar(value=minvalue)
         self._user_supplied_var = False if textvariable is None else True  # flag that user supplied textvar
         self.textvar = textvariable or tk.StringVar()  # if user hasn't supplied it, display var
+        self.textappend = textappend or ""
         self.wedgesize = wedgesize or 5
         self.arc_width = arc_width or 10
         self.minvalue = minvalue or 0
         self.maxvalue = maxvalue or 100
-        self.box_length = box_length or 200
+        self.box_length = box_length or self.base_size
         self.bg = bg or "#e5e5e5"
         self.fg = bg or "#343a40"
         self.font = font or "Courier"
-        self.fontsize = 14 * self.ss_mult
+        self.fontsize = round(self.base_font_size * (self.box_length / self.base_size))
+        self.fontsize_ticks = max(round(self.base_font_size * (self.box_length / self.base_size) / 2), 10)
+
+        # automagically get offset
+        self.offset = (
+            max(
+                len(f"{self.maxvalue:.1f}{self.textappend}") + 1,
+                len(f"{self.minvalue:.1f}{self.textappend}") + 1,
+            )
+            * self.fontsize_ticks
+            * 0.5
+        )
+        # print(self.offset)
 
         # trace
         self.var.trace_add("write", self.var_changed_cb)
@@ -58,8 +74,9 @@ class Gauge(tk.Frame):
         # draw
         self.meter = tk.Label(self.box)
         self.draw_base()
-        self.draw_wedge()
         self.draw_ticks()
+        self.draw_labels()
+        self.draw_wedge()
         self.meter.place(x=0, y=0)
         self.box.pack()
 
@@ -79,7 +96,7 @@ class Gauge(tk.Frame):
     def var_changed_cb(self, *args):
         if self.showtext:
             if not self._user_supplied_var:
-                self.text = f"{self.value:.2f}\N{DEGREE SIGN}"
+                self.text = f"{self.value:.1f}{self.textappend}"
         self.draw_wedge()
 
     @property
@@ -156,37 +173,21 @@ class Gauge(tk.Frame):
                 self.fg,
                 round(len_tick),
             )
-        # draw labels
-        where_what = (
-            (-20, "-20\N{DEGREE SIGN}"),
-            (0, "0\N{DEGREE SIGN}"),
-            (20, "+20\N{DEGREE SIGN}"),
-        )
-        font_size = 14 * self.ss_mult
-        max_len_text = max(len(ww[1]) for ww in where_what)
+
+    def draw_labels(self):
+        draw = ImageDraw.Draw(self.base)
+        offset = self.offset * self.ss_mult
+        len_box = self.box_length * self.ss_mult
+        font_size = self.fontsize_ticks * self.ss_mult
         arc_r = (self.box_length * self.ss_mult) * 0.5 - offset
-        l_arc_r = arc_r + ((max_len_text + 1) * 0.5 * font_size) * 0.5
-
-        # # WARN: TEST DELETE
-        # print(max_len_text)
-        # print(f"{len_box=} {arc_r=} {l_arc_r=}")
-        # draw.arc(
-        #     (len_box * 0.5 - l_arc_r, len_box * 0.5 - l_arc_r, len_box * 0.5 + l_arc_r, len_box * 0.5 + l_arc_r),
-        #     self.start_deg,
-        #     self.end_deg,
-        #     "black",
-        #     5,
-        # )
-
-        # l_h_offset = -1 * (max_len_text * font_size) * 0.5
-        # l_v_offset = font_size * 0.5
-        for pos, text in where_what:
+        l_arc_r = arc_r + self.offset
+        pos_maj = (x for x in range(self.minvalue, self.maxvalue + 1) if x % 5 == 0)
+        for pos in pos_maj:
+            text = f"{pos}{self.textappend}"
             n_pos = np.interp(pos, (self.minvalue, self.maxvalue), (self.start_deg, self.end_deg))
             n_pos = n_pos - 90  # because reasons
             n_pos_rad = np.deg2rad(n_pos)
             n_pos_rad = -n_pos_rad  # because numpy counts counterclockwise, and pillow counts clockwise
-            # x = len_box * 0.5 + np.sin(n_pos_rad) * l_arc_r + l_h_offset
-            # y = len_box * 0.5 + np.cos(n_pos_rad) * l_arc_r + l_v_offset
             x = len_box * 0.5 + l_arc_r * np.sin(n_pos_rad)
             y = len_box * 0.5 + l_arc_r * np.cos(n_pos_rad)
             draw.text((x, y), text, anchor="mm", font_size=font_size, fill=self.fg)
@@ -223,8 +224,9 @@ if __name__ == "__main__":
     mainframe.pack(expand=True, fill="both")
 
     var = tk.DoubleVar(value=0)
-    gauge1 = Gauge(mainframe, -22, 22, var, 2, True, "Fira Code", None, 500, 30, None, None, 2)
-    gauge1.pack()
+    Gauge(mainframe, -22, 22, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 500, 30, None, None, 2).pack()
+    Gauge(mainframe, -22, 22, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
+    Gauge(mainframe, -40, 40, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
     tk.Scale(mainframe, variable=var, from_=(-22), to=22, orient="horizontal", resolution=0.1).pack(fill="x")
 
     root.mainloop()
