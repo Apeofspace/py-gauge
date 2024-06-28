@@ -31,9 +31,10 @@ class Gauge(tk.Frame):
         super().__init__(master=master, **kwargs)
         self.box = tk.Frame(self, width=box_length, height=box_length * self.cut_bottom)
 
+        self.showtext = showtext or True
         self.var = variable or tk.DoubleVar(value=minvalue)
         self._user_supplied_var = False if textvariable is None else True  # flag that user supplied textvar
-        self.textvar = textvariable or tk.StringVar(value=f"{minvalue:.2f}")  # if user hasn't supplied it, display var
+        self.textvar = textvariable or tk.StringVar()  # if user hasn't supplied it, display var
         self.wedgesize = wedgesize or 5
         self.arc_width = arc_width or 10
         self.minvalue = minvalue or 0
@@ -41,7 +42,6 @@ class Gauge(tk.Frame):
         self.box_length = box_length or 200
         self.bg = bg or "#e5e5e5"
         self.fg = bg or "#343a40"
-        self.showtext = showtext or True
         # self.ss_mult = ss_mult or 5
 
         # trace
@@ -60,25 +60,24 @@ class Gauge(tk.Frame):
 
         # label with text
         if self.showtext:
-            self.text_container = tk.Frame(self.box)
             self.text_label = tk.Label(
-                self.text_container,
+                self.box,
                 textvariable=self.textvar,
-                width=6,
+                width=7,
                 font=(
                     "Courier",
                     14 * self.ss_mult,
                 ),
             )
-            self.text_label.pack(side="left", fill="y")
             rely = 0.5 / (1 - self.cut_bottom)
             rely = min(rely, 0.9)
-            self.text_container.place(relx=0.5, rely=rely, anchor="center")
+            self.var_changed_cb()  # force this callback to update textvar
+            self.text_label.place(relx=0.5, rely=rely, anchor="center")
 
     def var_changed_cb(self, *args):
         if self.showtext:
             if not self._user_supplied_var:
-                self.text = f"{self.value:.2f}"
+                self.text = f"{self.value:.2f}\N{DEGREE SIGN}"
         self.draw_arc()
 
     @property
