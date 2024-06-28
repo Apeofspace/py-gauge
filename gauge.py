@@ -46,6 +46,7 @@ class Gauge(tk.Frame):
         self.bg = bg or "#e5e5e5"
         self.fg = bg or "#343a40"
         self.font = font or "Courier"
+        self.fontsize = 14 * self.ss_mult
 
         # trace
         self.var.trace_add("write", self.var_changed_cb)
@@ -65,10 +66,10 @@ class Gauge(tk.Frame):
         # label with text
         if self.showtext:
             self.text_label = tk.Label(
-                self.box, textvariable=self.textvar, width=7, font=(self.font, 14 * self.ss_mult, "italic")
+                self.box, textvariable=self.textvar, width=7, font=(self.font, self.fontsize, "italic")
             )
             try:
-                rely = 0.5 / (1 - self.cut_bottom)
+                rely = 0.3 / (1 - self.cut_bottom)
             except ZeroDivisionError:
                 rely = 1
             rely = min(rely, 0.9)
@@ -103,13 +104,13 @@ class Gauge(tk.Frame):
 
     def draw_base(self):
         # base arc
-        len = self.box_length * self.ss_mult
-        self.base = Image.new("RGBA", (len, len))  # will be reduced
+        len_box = self.box_length * self.ss_mult
+        self.base = Image.new("RGBA", (len_box, len_box))  # will be reduced
         draw = ImageDraw.Draw(self.base)
         offset = self.offset * self.ss_mult
         arc_w = self.arc_width * self.ss_mult
         draw.arc(
-            (offset, offset, len - offset, len - offset),
+            (offset, offset, len_box - offset, len_box - offset),
             self.start_deg,
             self.end_deg,
             self.bg,
@@ -117,11 +118,10 @@ class Gauge(tk.Frame):
         )
 
     def draw_ticks(self):
-        len_arc = self.box_length * self.ss_mult
         offset = self.offset * self.ss_mult
+        len_box = self.box_length * self.ss_mult
         arc_w = self.arc_width * self.ss_mult
         draw = ImageDraw.Draw(self.base)
-        # draw.arc((0, 0, len, len), self.start_deg, self.end_deg, "black", 5)  # WARN: TEST DELETE
         # major ticks
         len_tick = self.arc_width * self.ss_mult * 0.6
         pos_maj = (x for x in range(self.minvalue, self.maxvalue + 1) if x % 5 == 0)
@@ -131,8 +131,8 @@ class Gauge(tk.Frame):
                 (
                     offset + (arc_w - len_tick) / 2,
                     offset + len_tick / 2,
-                    len_arc - offset - (arc_w - len_tick) / 2,
-                    len_arc - offset - (arc_w - len_tick) / 2,
+                    len_box - offset - (arc_w - len_tick) / 2,
+                    len_box - offset - (arc_w - len_tick) / 2,
                 ),
                 n_pos - 0.1,
                 n_pos + 0.1,
@@ -148,41 +148,48 @@ class Gauge(tk.Frame):
                 (
                     offset + (arc_w - len_tick) / 2,
                     offset + (arc_w - len_tick) / 2,
-                    len_arc - offset - (arc_w - len_tick) / 2,
-                    len_arc - offset - (arc_w - len_tick) / 2,
+                    len_box - offset - (arc_w - len_tick) / 2,
+                    len_box - offset - (arc_w - len_tick) / 2,
                 ),
                 n_pos - 0.1,
                 n_pos + 0.1,
                 self.fg,
                 round(len_tick),
             )
+        # draw labels
+        where_what = (
+            (-20, "-20\N{DEGREE SIGN}"),
+            (0, "0\N{DEGREE SIGN}"),
+            (20, "+20\N{DEGREE SIGN}"),
+        )
+        font_size = 14 * self.ss_mult
+        max_len_text = max(len(ww[1]) for ww in where_what)
+        arc_r = (self.box_length * self.ss_mult) * 0.5 - offset
+        l_arc_r = arc_r + ((max_len_text + 1) * 0.5 * font_size) * 0.5
 
-        # draw marks
-        # where_major = (
+        # # WARN: TEST DELETE
+        # print(max_len_text)
+        # print(f"{len_box=} {arc_r=} {l_arc_r=}")
+        # draw.arc(
+        #     (len_box * 0.5 - l_arc_r, len_box * 0.5 - l_arc_r, len_box * 0.5 + l_arc_r, len_box * 0.5 + l_arc_r),
         #     self.start_deg,
         #     self.end_deg,
-        #     (self.start_deg - self.end_deg) * 0.5,
+        #     "black",
+        #     5,
         # )
-        # offset = self.offset * self.ss_mult - len_major
-        # for pos in where_major:
-        #     draw.arc(
-        #         (offset, offset, len_arc - offset, len_arc - offset),
-        #         pos - 0.1,
-        #         pos + 0.1,
-        #         "black",
-        #         len_major,
-        #     )
-        # # draw minor ticks
 
-        # # draw labels
-        # what_text = (
-        #     f"{self.minvalue:0.0f}",
-        #     f"{(self.minvalue+(self.maxvalue-self.minvalue)*0.5):0.0f}",
-        #     f"{self.maxvalue:0.0f}",
-        # )
-        # for pos, text in zip(where_major, what_text):
-        #     # draw.text(xy, text)
-        #     print(f"{pos} {text}")
+        # l_h_offset = -1 * (max_len_text * font_size) * 0.5
+        # l_v_offset = font_size * 0.5
+        for pos, text in where_what:
+            n_pos = np.interp(pos, (self.minvalue, self.maxvalue), (self.start_deg, self.end_deg))
+            n_pos = n_pos - 90  # because reasons
+            n_pos_rad = np.deg2rad(n_pos)
+            n_pos_rad = -n_pos_rad  # because numpy counts counterclockwise, and pillow counts clockwise
+            # x = len_box * 0.5 + np.sin(n_pos_rad) * l_arc_r + l_h_offset
+            # y = len_box * 0.5 + np.cos(n_pos_rad) * l_arc_r + l_v_offset
+            x = len_box * 0.5 + l_arc_r * np.sin(n_pos_rad)
+            y = len_box * 0.5 + l_arc_r * np.cos(n_pos_rad)
+            draw.text((x, y), text, anchor="mm", font_size=font_size, fill=self.fg)
 
     def draw_wedge(self):
         im = self.base.copy()
@@ -216,7 +223,7 @@ if __name__ == "__main__":
     mainframe.pack(expand=True, fill="both")
 
     var = tk.DoubleVar(value=0)
-    gauge1 = Gauge(mainframe, -22, 22, var, 2, True, "Fira Code", None, 500, 20, None, None, 2)
+    gauge1 = Gauge(mainframe, -22, 22, var, 2, True, "Fira Code", None, 500, 30, None, None, 2)
     gauge1.pack()
     tk.Scale(mainframe, variable=var, from_=(-22), to=22, orient="horizontal", resolution=0.1).pack(fill="x")
 
