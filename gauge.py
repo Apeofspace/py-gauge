@@ -21,6 +21,8 @@ class Gauge(tk.Frame):
         master,
         minvalue,
         maxvalue,
+        major_ticks_step,
+        minor_ticks_per_major,
         variable,
         wedgesize,
         showtext,
@@ -52,6 +54,8 @@ class Gauge(tk.Frame):
         self.font = font or "Courier"
         self.fontsize = round(self.base_font_size * (self.box_length / self.base_size))
         self.fontsize_ticks = max(round(self.base_font_size * (self.box_length / self.base_size) / 2), 10)
+        self.major_ticks_step = major_ticks_step or 5
+        self.minor_ticks_per_major = minor_ticks_per_major or 5
 
         # automagically get offset
         self.offset = (
@@ -141,7 +145,7 @@ class Gauge(tk.Frame):
         draw = ImageDraw.Draw(self.base)
         # major ticks
         len_tick = self.arc_width * self.ss_mult * 0.6
-        pos_maj = (x for x in range(self.minvalue, self.maxvalue + 1) if x % 5 == 0)
+        pos_maj = np.arange(self.minvalue, self.maxvalue + self.major_ticks_step, self.major_ticks_step)
         for pos in pos_maj:
             n_pos = np.interp(pos, (self.minvalue, self.maxvalue), (self.start_deg, self.end_deg))
             draw.arc(
@@ -158,8 +162,16 @@ class Gauge(tk.Frame):
             )
         # minor ticks
         len_tick = len_tick * 0.5
-        pos_min = (x for x in range(self.minvalue, self.maxvalue + 1) if x % 5 != 0)
+        min_tick_step = self.major_ticks_step / self.minor_ticks_per_major
+        pos_min = []
+        for maj_tick in pos_maj:
+            start = maj_tick + min_tick_step
+            end = maj_tick + self.major_ticks_step
+            if end > self.maxvalue:
+                break
+            pos_min.extend(np.arange(start, end, min_tick_step))
         for pos in pos_min:
+            print(f"{pos=}")
             n_pos = np.interp(pos, (self.minvalue, self.maxvalue), (self.start_deg, self.end_deg))
             draw.arc(
                 (
@@ -181,9 +193,13 @@ class Gauge(tk.Frame):
         font_size = self.fontsize_ticks * self.ss_mult
         arc_r = (self.box_length * self.ss_mult) * 0.5 - offset
         l_arc_r = arc_r + self.offset
-        pos_maj = (x for x in range(self.minvalue, self.maxvalue + 1) if x % 5 == 0)
+        # pos_maj = (x for x in range(self.minvalue, self.maxvalue + 1) if x % 5 == 0)
+        pos_maj = np.arange(self.minvalue, self.maxvalue, self.major_ticks_step)
         for pos in pos_maj:
-            text = f"{pos}{self.textappend}"
+            if isinstance(pos, float):
+                text = f"{pos:.2f}{self.textappend}"
+            else:
+                text = f"{pos}{self.textappend}"
             n_pos = np.interp(pos, (self.minvalue, self.maxvalue), (self.start_deg, self.end_deg))
             n_pos = n_pos - 90  # because reasons
             n_pos_rad = np.deg2rad(n_pos)
@@ -224,9 +240,10 @@ if __name__ == "__main__":
     mainframe.pack(expand=True, fill="both")
 
     var = tk.DoubleVar(value=0)
-    Gauge(mainframe, -22, 22, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 500, 30, None, None, 2).pack()
-    Gauge(mainframe, -22, 22, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
-    Gauge(mainframe, -40, 40, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
+    Gauge(mainframe, -24, 24, 4, 5, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 500, 30, None, None, 2).pack()
+    Gauge(mainframe, -22, 22, 8, 0, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
+    Gauge(mainframe, -100, 100, 20, 2, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
+    Gauge(mainframe, -1, 1, 0.1, 1, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
     tk.Scale(mainframe, variable=var, from_=(-22), to=22, orient="horizontal", resolution=0.1).pack(fill="x")
 
     root.mainloop()
