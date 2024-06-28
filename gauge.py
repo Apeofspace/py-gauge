@@ -11,6 +11,8 @@ class Gauge(tk.Frame):
     end_deg = 0
     ss_mult = 3  # supersampling
     cut_bottom = 0.55  # 1 to not cut, 0.4 to cut 60% etc
+    # cut_bottom = 1  # 1 to not cut, 0.4 to cut 60% etc
+    offset = 40
 
     def __init__(
         self,
@@ -20,6 +22,7 @@ class Gauge(tk.Frame):
         variable,
         wedgesize,
         showtext,
+        font,
         textvariable,
         box_length,
         arc_width,
@@ -42,7 +45,7 @@ class Gauge(tk.Frame):
         self.box_length = box_length or 200
         self.bg = bg or "#e5e5e5"
         self.fg = bg or "#343a40"
-        # self.ss_mult = ss_mult or 5
+        self.font = font or "Courier"
 
         # trace
         self.var.trace_add("write", self.var_changed_cb)
@@ -54,22 +57,20 @@ class Gauge(tk.Frame):
         # draw
         self.meter = tk.Label(self.box)
         self.draw_base()
-        self.draw_arc()
+        self.draw_wedge()
+        self.draw_ticks()
         self.meter.place(x=0, y=0)
         self.box.pack()
 
         # label with text
         if self.showtext:
             self.text_label = tk.Label(
-                self.box,
-                textvariable=self.textvar,
-                width=7,
-                font=(
-                    "Courier",
-                    14 * self.ss_mult,
-                ),
+                self.box, textvariable=self.textvar, width=7, font=(self.font, 14 * self.ss_mult, "italic")
             )
-            rely = 0.5 / (1 - self.cut_bottom)
+            try:
+                rely = 0.5 / (1 - self.cut_bottom)
+            except ZeroDivisionError:
+                rely = 1
             rely = min(rely, 0.9)
             self.var_changed_cb()  # force this callback to update textvar
             self.text_label.place(relx=0.5, rely=rely, anchor="center")
@@ -78,7 +79,7 @@ class Gauge(tk.Frame):
         if self.showtext:
             if not self._user_supplied_var:
                 self.text = f"{self.value:.2f}\N{DEGREE SIGN}"
-        self.draw_arc()
+        self.draw_wedge()
 
     @property
     def text(self):
@@ -101,17 +102,51 @@ class Gauge(tk.Frame):
 
     def draw_base(self):
         # base arc
-        self.base = Image.new("RGBA", (self.box_length * self.ss_mult, self.box_length * self.ss_mult))  # will be reduced
+        len = self.box_length * self.ss_mult
+        self.base = Image.new("RGBA", (len, len))  # will be reduced
         draw = ImageDraw.Draw(self.base)
+        offset = self.offset * self.ss_mult
         draw.arc(
-            (0, 0, self.box_length * self.ss_mult - 20, self.box_length * self.ss_mult - 20),
+            (offset, offset, len - offset, len - offset),
             self.start_deg,
             self.end_deg,
             self.bg,
             self.arc_width * self.ss_mult,
         )
 
-    def draw_arc(self):
+    def draw_ticks(self):
+        len = self.box_length * self.ss_mult
+        draw = ImageDraw.Draw(self.base)
+        draw.arc((0, 0, len, len), self.start_deg, self.end_deg, "black", 5)  # WARN: TEST DELETE
+        # draw marks
+        where_major = (
+            self.start_deg,
+            self.end_deg,
+            (self.start_deg - self.end_deg) * 0.5,
+        )
+        len_mark = 15 * self.ss_mult
+        offset = self.offset * self.ss_mult - len_mark
+        for pos in where_major:
+            draw.arc(
+                (offset, offset, len - offset, len - offset),
+                pos - 0.1,
+                pos + 0.1,
+                "black",
+                len_mark,
+            )
+        # draw minor ticks
+
+        # draw labels
+        what_text = (
+            f"{self.minvalue:0.0f}",
+            f"{(self.minvalue+(self.maxvalue-self.minvalue)*0.5):0.0f}",
+            f"{self.maxvalue:0.0f}",
+        )
+        for pos, text in zip(where_major, what_text):
+            # draw.text(xy, text)
+            print(f"{pos} {text}")
+
+    def draw_wedge(self):
         im = self.base.copy()
         draw = ImageDraw.Draw(im)
         # get normalized value from self.start_deg to self.end_deg degrees
@@ -120,8 +155,9 @@ class Gauge(tk.Frame):
         ws = self.wedgesize
         # draw wedge
         sidelen = self.box_length
+        offset = self.offset * self.ss_mult
         draw.arc(
-            (0, 0, sidelen * self.ss_mult - 20, sidelen * self.ss_mult - 20),
+            (offset, offset, sidelen * self.ss_mult - offset, sidelen * self.ss_mult - offset),
             normalized_val - ws,
             normalized_val + ws,
             self.fg,
@@ -142,7 +178,7 @@ if __name__ == "__main__":
     mainframe.pack(expand=True, fill="both")
 
     var = tk.DoubleVar(value=0)
-    gauge1 = Gauge(mainframe, -18, 18, var, 2, True, None, 500, 20, None, None, 2)
+    gauge1 = Gauge(mainframe, -18, 18, var, 2, True, "Fira Code", None, 500, 20, None, None, 2)
     gauge1.pack()
     tk.Scale(mainframe, variable=var, from_=(-18), to=18, orient="horizontal", resolution=0.1).pack(fill="x")
 
