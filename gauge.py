@@ -7,10 +7,10 @@ from PIL import Image, ImageDraw, ImageTk
 
 class Gauge(tk.Frame):
 
-    start_deg = -180
-    end_deg = 0
+    start_deg = -188
+    end_deg = 8
     ss_mult = 3  # supersampling
-    cut_bottom = 0.55  # 1 to not cut, 0.4 to cut 60% etc
+    cut_bottom = 0.65  # 1 to not cut, 0.4 to cut 60% etc
     # cut_bottom = 1  # 1 to not cut, 0.4 to cut 60% etc
     offset = 40
 
@@ -95,10 +95,11 @@ class Gauge(tk.Frame):
 
     @value.setter
     def value(self, new_value):
-        if self.minvalue <= new_value <= self.maxvalue:
-            self.var.set(new_value)
-        else:
-            raise ValueError("Value outside min and max")
+        if new_value != self.value:
+            if self.minvalue <= new_value <= self.maxvalue:
+                self.var.set(new_value)
+            else:
+                raise ValueError("Value outside min and max")
 
     def draw_base(self):
         # base arc
@@ -106,45 +107,82 @@ class Gauge(tk.Frame):
         self.base = Image.new("RGBA", (len, len))  # will be reduced
         draw = ImageDraw.Draw(self.base)
         offset = self.offset * self.ss_mult
+        arc_w = self.arc_width * self.ss_mult
         draw.arc(
             (offset, offset, len - offset, len - offset),
             self.start_deg,
             self.end_deg,
             self.bg,
-            self.arc_width * self.ss_mult,
+            arc_w,
         )
 
     def draw_ticks(self):
-        len = self.box_length * self.ss_mult
+        len_arc = self.box_length * self.ss_mult
+        offset = self.offset * self.ss_mult
+        arc_w = self.arc_width * self.ss_mult
         draw = ImageDraw.Draw(self.base)
-        draw.arc((0, 0, len, len), self.start_deg, self.end_deg, "black", 5)  # WARN: TEST DELETE
-        # draw marks
-        where_major = (
-            self.start_deg,
-            self.end_deg,
-            (self.start_deg - self.end_deg) * 0.5,
-        )
-        len_mark = 15 * self.ss_mult
-        offset = self.offset * self.ss_mult - len_mark
-        for pos in where_major:
+        # draw.arc((0, 0, len, len), self.start_deg, self.end_deg, "black", 5)  # WARN: TEST DELETE
+        # major ticks
+        len_tick = self.arc_width * self.ss_mult * 0.6
+        pos_maj = (x for x in range(self.minvalue, self.maxvalue + 1) if x % 5 == 0)
+        for pos in pos_maj:
+            n_pos = np.interp(pos, (self.minvalue, self.maxvalue), (self.start_deg, self.end_deg))
             draw.arc(
-                (offset, offset, len - offset, len - offset),
-                pos - 0.1,
-                pos + 0.1,
-                "black",
-                len_mark,
+                (
+                    offset + (arc_w - len_tick) / 2,
+                    offset + len_tick / 2,
+                    len_arc - offset - (arc_w - len_tick) / 2,
+                    len_arc - offset - (arc_w - len_tick) / 2,
+                ),
+                n_pos - 0.1,
+                n_pos + 0.1,
+                self.fg,
+                round(len_tick),
             )
-        # draw minor ticks
+        # minor ticks
+        len_tick = len_tick * 0.5
+        pos_min = (x for x in range(self.minvalue, self.maxvalue + 1) if x % 5 != 0)
+        for pos in pos_min:
+            n_pos = np.interp(pos, (self.minvalue, self.maxvalue), (self.start_deg, self.end_deg))
+            draw.arc(
+                (
+                    offset + (arc_w - len_tick) / 2,
+                    offset + (arc_w - len_tick) / 2,
+                    len_arc - offset - (arc_w - len_tick) / 2,
+                    len_arc - offset - (arc_w - len_tick) / 2,
+                ),
+                n_pos - 0.1,
+                n_pos + 0.1,
+                self.fg,
+                round(len_tick),
+            )
 
-        # draw labels
-        what_text = (
-            f"{self.minvalue:0.0f}",
-            f"{(self.minvalue+(self.maxvalue-self.minvalue)*0.5):0.0f}",
-            f"{self.maxvalue:0.0f}",
-        )
-        for pos, text in zip(where_major, what_text):
-            # draw.text(xy, text)
-            print(f"{pos} {text}")
+        # draw marks
+        # where_major = (
+        #     self.start_deg,
+        #     self.end_deg,
+        #     (self.start_deg - self.end_deg) * 0.5,
+        # )
+        # offset = self.offset * self.ss_mult - len_major
+        # for pos in where_major:
+        #     draw.arc(
+        #         (offset, offset, len_arc - offset, len_arc - offset),
+        #         pos - 0.1,
+        #         pos + 0.1,
+        #         "black",
+        #         len_major,
+        #     )
+        # # draw minor ticks
+
+        # # draw labels
+        # what_text = (
+        #     f"{self.minvalue:0.0f}",
+        #     f"{(self.minvalue+(self.maxvalue-self.minvalue)*0.5):0.0f}",
+        #     f"{self.maxvalue:0.0f}",
+        # )
+        # for pos, text in zip(where_major, what_text):
+        #     # draw.text(xy, text)
+        #     print(f"{pos} {text}")
 
     def draw_wedge(self):
         im = self.base.copy()
@@ -178,8 +216,8 @@ if __name__ == "__main__":
     mainframe.pack(expand=True, fill="both")
 
     var = tk.DoubleVar(value=0)
-    gauge1 = Gauge(mainframe, -18, 18, var, 2, True, "Fira Code", None, 500, 20, None, None, 2)
+    gauge1 = Gauge(mainframe, -22, 22, var, 2, True, "Fira Code", None, 500, 20, None, None, 2)
     gauge1.pack()
-    tk.Scale(mainframe, variable=var, from_=(-18), to=18, orient="horizontal", resolution=0.1).pack(fill="x")
+    tk.Scale(mainframe, variable=var, from_=(-22), to=22, orient="horizontal", resolution=0.1).pack(fill="x")
 
     root.mainloop()
