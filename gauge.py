@@ -171,7 +171,6 @@ class Gauge(tk.Frame):
                 break
             pos_min.extend(np.arange(start, end, min_tick_step))
         for pos in pos_min:
-            print(f"{pos=}")
             n_pos = np.interp(pos, (self.minvalue, self.maxvalue), (self.start_deg, self.end_deg))
             draw.arc(
                 (
@@ -194,7 +193,7 @@ class Gauge(tk.Frame):
         arc_r = (self.box_length * self.ss_mult) * 0.5 - offset
         l_arc_r = arc_r + self.offset
         # pos_maj = (x for x in range(self.minvalue, self.maxvalue + 1) if x % 5 == 0)
-        pos_maj = np.arange(self.minvalue, self.maxvalue, self.major_ticks_step)
+        pos_maj = np.arange(self.minvalue, self.maxvalue + self.major_ticks_step, self.major_ticks_step)
         for pos in pos_maj:
             if isinstance(pos, float):
                 text = f"{pos:.2f}{self.textappend}"
