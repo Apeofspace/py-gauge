@@ -11,34 +11,30 @@ class Gauge(tk.Frame):
     end_deg = 8
     ss_mult = 3  # supersampling
     cut_bottom = 0.65  # 1 to not cut, 0.4 to cut 60% etc
-    # cut_bottom = 1  # 1 to not cut, 0.4 to cut 60% etc
-    # offset = 35
     base_size = 250
     base_font_size = 16
 
     def __init__(
         self,
         master,
-        minvalue,
-        maxvalue,
-        major_ticks_step,
-        minor_ticks_per_major,
-        variable,
-        wedgesize,
-        showtext,
-        font,
-        textvariable,
-        textappend,
-        box_length,
-        arc_width,
-        bg,
-        fg,
-        ss_mult,
+        minvalue=None,
+        maxvalue=None,
+        major_ticks_step=None,
+        minor_ticks_per_major=None,
+        variable=None,
+        wedgesize=None,
+        showtext=None,
+        font=None,
+        textvariable=None,
+        textappend=None,
+        box_length=None,
+        arc_width=None,
+        scale_color=None,
+        wedge_color=None,
+        ss_mult=None,
         **kwargs,
     ):
-        super().__init__(master=master, **kwargs)
-        self.box = tk.Frame(self, width=box_length, height=box_length * self.cut_bottom)
-
+        # params
         self.showtext = showtext or True
         self.var = variable or tk.DoubleVar(value=minvalue)
         self._user_supplied_var = False if textvariable is None else True  # flag that user supplied textvar
@@ -49,13 +45,21 @@ class Gauge(tk.Frame):
         self.minvalue = minvalue or 0
         self.maxvalue = maxvalue or 100
         self.box_length = box_length or self.base_size
-        self.bg = bg or "#e5e5e5"
-        self.fg = bg or "#343a40"
+        self.scale_color = scale_color or "#e5e5e5"
+        self.wedge_color = scale_color or "#343a40"
         self.font = font or "Courier"
         self.fontsize = round(self.base_font_size * (self.box_length / self.base_size))
         self.fontsize_ticks = max(round(self.base_font_size * (self.box_length / self.base_size) / 2), 10)
         self.major_ticks_step = major_ticks_step or 5
         self.minor_ticks_per_major = minor_ticks_per_major or 5
+
+        # asserts
+        assert 0 < self.wedgesize < 100
+        assert maxvalue > minvalue
+
+        # box
+        super().__init__(master=master, **kwargs)
+        self.box = tk.Frame(self, width=self.box_length, height=self.box_length * self.cut_bottom)
 
         # automagically get offset
         self.offset = (
@@ -70,10 +74,6 @@ class Gauge(tk.Frame):
 
         # trace
         self.var.trace_add("write", self.var_changed_cb)
-
-        # asserts
-        assert 0 < self.wedgesize < 100
-        assert maxvalue > minvalue
 
         # draw
         self.meter = tk.Label(self.box)
@@ -134,7 +134,7 @@ class Gauge(tk.Frame):
             (offset, offset, len_box - offset, len_box - offset),
             self.start_deg,
             self.end_deg,
-            self.bg,
+            self.scale_color,
             arc_w,
         )
 
@@ -157,7 +157,7 @@ class Gauge(tk.Frame):
                 ),
                 n_pos - 0.1,
                 n_pos + 0.1,
-                self.fg,
+                self.wedge_color,
                 round(len_tick),
             )
         # minor ticks
@@ -183,7 +183,7 @@ class Gauge(tk.Frame):
                 ),
                 n_pos - 0.1,
                 n_pos + 0.1,
-                self.fg,
+                self.wedge_color,
                 round(len_tick),
             )
 
@@ -206,7 +206,7 @@ class Gauge(tk.Frame):
             n_pos_rad = -n_pos_rad  # because numpy counts counterclockwise, and pillow counts clockwise
             x = len_box * 0.5 + l_arc_r * np.sin(n_pos_rad)
             y = len_box * 0.5 + l_arc_r * np.cos(n_pos_rad)
-            draw.text((x, y), text, anchor="mm", font_size=font_size, fill=self.fg)
+            draw.text((x, y), text, anchor="mm", font_size=font_size, fill=self.wedge_color)
 
     def draw_wedge(self):
         im = self.base.copy()
@@ -222,7 +222,7 @@ class Gauge(tk.Frame):
             (offset, offset, sidelen * self.ss_mult - offset, sidelen * self.ss_mult - offset),
             normalized_val - ws,
             normalized_val + ws,
-            self.fg,
+            self.wedge_color,
             self.arc_width * self.ss_mult,
         )
         # resize image and put it on the label
@@ -244,6 +244,7 @@ if __name__ == "__main__":
     Gauge(mainframe, -22, 23, 8, 0, var, 6, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
     Gauge(mainframe, -100, 100, 20, 2, var, 1, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
     Gauge(mainframe, -1, 1, 0.1, 1, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
+    Gauge(mainframe, -1, 1, 0.1, 1, var).pack()
     tk.Scale(mainframe, variable=var, from_=(-22), to=22, orient="horizontal", resolution=0.1).pack(fill="x")
 
     root.mainloop()
