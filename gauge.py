@@ -231,32 +231,115 @@ class RadGauge(tk.Frame):
 
 
 class PitchMeter(tk.Frame):
-    ss_mult = 3
 
-    def __init__(self, master, height=None, minvalue=None, maxvalue=None, variable=None, textappend=None, **kwargs):
+    ss_mult = 2  # supersampling
+    base_font_size = 16
+    base_height = 250
+
+    def __init__(
+        self, master, height=None, minvalue=None, maxvalue=None, variable=None, textvariable=None, textappend=None, **kwargs
+    ):
         # params
         self.minvalue = minvalue or -18
         self.maxvalue = maxvalue or 18
-        self.variable = variable or tk.DoubleVar(value=self.minvalue)
+        self.var = variable or tk.DoubleVar(value=self.minvalue)
+        self.textvar = textvariable or tk.StringVar()  # TODO: update this value
         self.textappend = textappend or ""
-        self.height = height or 200
-        self.width = self.height * 0.5  # TODO: tweak this later
-        self.textvariable = tk.StringVar()  # TODO: update this value
+        self._user_supplied_var = False if textvariable is None else True
+        self.height = height or self.base_height
+        self.width = round(self.height * 0.14)  # TODO: tweak this later
+        self.fontsize = round(self.base_font_size * (self.height / self.base_height))
+        self.fontsize_ticks = max(round(self.base_font_size * (self.height / self.base_height) / 2), 14)
+        self.bg = kwargs.get("bg") or "#e5e5e5"
+        self.fg = kwargs.get("fg") or "#343a40"
+        self.font = kwargs.get("font") or ("Courier", self.fontsize, "italic")
+
+        # trace
+        self.var.trace_add("write", self.var_changed_cb)
 
         # asserts
         assert self.maxvalue > self.minvalue
 
-        # labels
-        # self.
-
         # super
+        kwargs["padx"] = 5
+        kwargs["pady"] = 5
+        kwargs["bg"] = self.bg
+        kwargs["height"] = self.height
+        kwargs["width"] = self.width
         super().__init__(master, **kwargs)
+
+        # labels
+        self.meter = tk.Label(self)
+        maxw = max(
+            len(f"{self.maxvalue:.1f}{self.textappend}") + 1,
+            len(f"{self.minvalue:.1f}{self.textappend}") + 1,
+        )
+        self.label = tk.Label(self, textvariable=self.textvar, anchor="w", width=maxw, font=self.font)
+
+        # draw
+        self.draw_base()
+        self.draw_wedge()
+
+        # force this callback to update textvar
+        self.var_changed_cb()
+
+        # pack all
+        self.meter.pack(expand=True, fill="y", side="left")
+        self.label.pack(expand=True, side="left", anchor="w", padx=(5, 0))
 
     def draw_base(self):
         h = self.height * self.ss_mult
         w = self.width * self.ss_mult
         self.base = Image.new("RGBA", (w, h))
         draw = ImageDraw.Draw(self.base)
+        # lines
+        offset = self.fontsize_ticks * self.ss_mult
+        h_line_len = 0.5 * w
+        width = 2 * self.ss_mult
+        draw.line(
+            ((0, offset), (h_line_len, offset), (h_line_len, h - offset), (0, h - offset)),
+            fill=self.fg,
+            width=width,
+        )
+        # labels
+        fontsize = self.fontsize_ticks * self.ss_mult
+        text = f"{self.maxvalue:+}{self.textappend}"
+        draw.text((0, 0), text=text, anchor="lt", font_size=fontsize, fill=self.fg)
+        text = f"{self.minvalue:+}{self.textappend}"
+        draw.text((0, h), text=text, anchor="lb", font_size=fontsize, fill=self.fg)
+
+    def draw_wedge(self):
+        im = self.base.copy()
+        draw = ImageDraw.Draw(im)
+        ...
+        # resize and put on label
+        self.meterimage = ImageTk.PhotoImage(im.resize((self.width, self.height), Image.BICUBIC))
+        self.meter.configure(image=self.meterimage)
+
+    def var_changed_cb(self, *args):
+        if not self._user_supplied_var:
+            self.text = f"{self.value:.1f}{self.textappend}"
+        self.draw_wedge()
+
+    @property
+    def text(self):
+        return self.textvar.get()
+
+    @text.setter
+    def text(self, str):
+        self.textvar.set(str)
+
+    @property
+    def value(self):
+        return self.var.get()
+
+    @value.setter
+    def value(self, new_value):
+        if new_value != self.value:
+            if self.minvalue <= new_value <= self.maxvalue:
+                self.var.set(new_value)
+            else:
+                raise ValueError("Value outside min and max")
 
 
 if __name__ == "__main__":
@@ -271,7 +354,7 @@ if __name__ == "__main__":
 
     # radgauge
     gfr = tk.Frame(mainfr)
-    gfr.pack(expand=True, fill="x", side="left")
+    gfr.pack(expand=True, fill="both", side="left")
     RadGauge(gfr, -24, 24, 4, 5, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 500, 30, None, None, 2).pack()
     RadGauge(gfr, -22, 23, 8, 0, var, 30, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
     RadGauge(
@@ -281,8 +364,8 @@ if __name__ == "__main__":
 
     # pitchemeter
     pfr = tk.Frame(mainfr)
-    pfr.pack(expand=True, fill="x", side="left")
-    PitchMeter(pfr).pack()
+    PitchMeter(pfr, height=500, variable=var, textappend="\N{DEGREE SIGN}").pack(side="top")
+    pfr.pack(expand=True, fill="both", side="left")
 
     # star mainloop
     mainfr.pack(expand=True, fill="both", padx=20, pady=20)
