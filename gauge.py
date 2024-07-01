@@ -90,7 +90,7 @@ class Gauge(tk.Frame):
                 self.box, textvariable=self.textvar, width=7, font=(self.font, self.fontsize, "italic")
             )
             try:
-                rely = 0.3 / (1 - self.cut_bottom)
+                rely = 0.25 / (1 - self.cut_bottom)
             except ZeroDivisionError:
                 rely = 1
             rely = min(rely, 0.9)
@@ -241,10 +241,9 @@ if __name__ == "__main__":
 
     var = tk.DoubleVar(value=0)
     Gauge(mainframe, -24, 24, 4, 5, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 500, 30, None, None, 2).pack()
-    Gauge(mainframe, -22, 23, 8, 0, var, 6, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
+    Gauge(mainframe, -22, 23, 8, 0, var, 30, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
     Gauge(mainframe, -100, 100, 20, 2, var, 1, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
-    Gauge(mainframe, -1, 1, 0.1, 1, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
-    Gauge(mainframe, -1, 1, 0.1, 1, var).pack()
+    Gauge(mainframe, -1, 1, 0.1, 1, var, arc_width=50).pack()
     tk.Scale(mainframe, variable=var, from_=(-22), to=22, orient="horizontal", resolution=0.1).pack(fill="x")
 
     root.mainloop()
