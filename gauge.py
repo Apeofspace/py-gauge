@@ -1,11 +1,12 @@
 import tkinter as tk
-import tkinter.ttk as ttk
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageTk
 
+# import tkinter.ttk as ttk
 
-class Gauge(tk.Frame):
+
+class RadGauge(tk.Frame):
 
     start_deg = -188
     end_deg = 8
@@ -55,11 +56,12 @@ class Gauge(tk.Frame):
 
         # asserts
         assert 0 < self.wedgesize < 100
-        assert maxvalue > minvalue
+        assert self.maxvalue > self.minvalue
 
-        # box
+        # super
+        kwargs["width"] = self.box_length
+        kwargs["height"] = self.box_length * self.cut_bottom
         super().__init__(master=master, **kwargs)
-        self.box = tk.Frame(self, width=self.box_length, height=self.box_length * self.cut_bottom)
 
         # automagically get offset
         self.offset = (
@@ -70,25 +72,21 @@ class Gauge(tk.Frame):
             * self.fontsize_ticks
             * 0.5
         )
-        # print(self.offset)
 
         # trace
         self.var.trace_add("write", self.var_changed_cb)
 
         # draw
-        self.meter = tk.Label(self.box)
+        self.meter = tk.Label(self)
         self.draw_base()
         self.draw_ticks()
         self.draw_labels()
         self.draw_wedge()
         self.meter.place(x=0, y=0)
-        self.box.pack()
 
         # label with text
         if self.showtext:
-            self.text_label = tk.Label(
-                self.box, textvariable=self.textvar, width=7, font=(self.font, self.fontsize, "italic")
-            )
+            self.text_label = tk.Label(self, textvariable=self.textvar, width=7, font=(self.font, self.fontsize, "italic"))
             try:
                 rely = 0.25 / (1 - self.cut_bottom)
             except ZeroDivisionError:
@@ -169,7 +167,6 @@ class Gauge(tk.Frame):
             end = maj_tick + self.major_ticks_step
             if end > self.maxvalue:
                 end = end - (self.maxvalue - end) / min_tick_step
-                # end -= min_tick_step
                 break
             pos_min.extend(np.arange(start, end, min_tick_step))
         for pos in pos_min:
@@ -233,17 +230,60 @@ class Gauge(tk.Frame):
         self.meter.configure(image=self.meterimage)
 
 
+class PitchMeter(tk.Frame):
+    ss_mult = 3
+
+    def __init__(self, master, height=None, minvalue=None, maxvalue=None, variable=None, textappend=None, **kwargs):
+        # params
+        self.minvalue = minvalue or -18
+        self.maxvalue = maxvalue or 18
+        self.variable = variable or tk.DoubleVar(value=self.minvalue)
+        self.textappend = textappend or ""
+        self.height = height or 200
+        self.width = self.height * 0.5  # TODO: tweak this later
+        self.textvariable = tk.StringVar()  # TODO: update this value
+
+        # asserts
+        assert self.maxvalue > self.minvalue
+
+        # labels
+        # self.
+
+        # super
+        super().__init__(master, **kwargs)
+
+    def draw_base(self):
+        h = self.height * self.ss_mult
+        w = self.width * self.ss_mult
+        self.base = Image.new("RGBA", (w, h))
+        draw = ImageDraw.Draw(self.base)
+
+
 if __name__ == "__main__":
     root = tk.Tk()
+    mainfr = tk.Frame(root)
 
-    mainframe = tk.Frame(root, padx=20, pady=20)
-    mainframe.pack(expand=True, fill="both")
-
+    # scale
     var = tk.DoubleVar(value=0)
-    Gauge(mainframe, -24, 24, 4, 5, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 500, 30, None, None, 2).pack()
-    Gauge(mainframe, -22, 23, 8, 0, var, 30, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
-    Gauge(mainframe, -100, 100, 20, 2, var, 1, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
-    Gauge(mainframe, -1, 1, 0.1, 1, var, arc_width=50).pack()
-    tk.Scale(mainframe, variable=var, from_=(-22), to=22, orient="horizontal", resolution=0.1).pack(fill="x")
+    tk.Scale(mainfr, variable=var, from_=(-22), to=22, orient="horizontal", resolution=0.1).pack(
+        fill="x", expand=True, side="bottom"
+    )
 
+    # radgauge
+    gfr = tk.Frame(mainfr)
+    gfr.pack(expand=True, fill="x", side="left")
+    RadGauge(gfr, -24, 24, 4, 5, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 500, 30, None, None, 2).pack()
+    RadGauge(gfr, -22, 23, 8, 0, var, 30, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
+    RadGauge(
+        gfr, -100, 100, 20, 2, var, 1, True, "Fira Code", tk.StringVar(value="Noice!"), None, 250, 10, None, None, 2
+    ).pack()
+    RadGauge(gfr, -1, 1, 0.1, 1, var, arc_width=50).pack()
+
+    # pitchemeter
+    pfr = tk.Frame(mainfr)
+    pfr.pack(expand=True, fill="x", side="left")
+    PitchMeter(pfr).pack()
+
+    # star mainloop
+    mainfr.pack(expand=True, fill="both", padx=20, pady=20)
     root.mainloop()
