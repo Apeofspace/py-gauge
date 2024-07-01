@@ -247,6 +247,7 @@ class PitchMeter(tk.Frame):
         variable=None,
         textvariable=None,
         textappend=None,
+        font=None,
         wedgesize=None,
         scale_color=None,
         wedge_color=None,
@@ -264,7 +265,8 @@ class PitchMeter(tk.Frame):
         self.fontsize_ticks = max(round(self.base_font_size * (self.height / self.base_height) / 2), 14)
         self.scale_color = scale_color or "#e5e5e5"
         self.wedge_color = wedge_color or "#343a40"
-        self.font = kwargs.get("font") or ("Courier", self.fontsize, "italic")
+        # self.font = kwargs.get("font") or ("Courier", self.fontsize, "italic")
+        self.font = font or "Courier"
         self.wedgesize = wedgesize or 2  # this is in percent
         self.major_ticks_step = major_ticks_step or 5
         self.minor_ticks_per_major = minor_ticks_per_major or 5
@@ -292,7 +294,9 @@ class PitchMeter(tk.Frame):
 
         # labels
         self.meter = tk.Label(self)
-        self.label = tk.Label(self, textvariable=self.textvar, anchor="center", width=maxw + 1, font=self.font)
+        self.label = tk.Label(
+            self, textvariable=self.textvar, anchor="center", width=maxw + 1, font=(self.font, self.fontsize, "italic")
+        )
 
         # draw
         self.draw_base()
@@ -442,7 +446,14 @@ if __name__ == "__main__":
         side="top", anchor="w"
     )
     PitchMeter(
-        pfr, variable=var, maxvalue=1, minvalue=-1, textappend="\N{DEGREE SIGN}", major_ticks_step=1, minor_ticks_per_major=2
+        pfr,
+        variable=var,
+        maxvalue=1,
+        minvalue=-1,
+        textappend="\N{DEGREE SIGN} град",
+        major_ticks_step=1,
+        minor_ticks_per_major=2,
+        font="Victor Mono",
     ).pack(side="top", anchor="w")
     pfr.pack(expand=True, fill="both", side="left")
 
