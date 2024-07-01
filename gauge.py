@@ -237,7 +237,18 @@ class PitchMeter(tk.Frame):
     base_height = 250
 
     def __init__(
-        self, master, height=None, minvalue=None, maxvalue=None, variable=None, textvariable=None, textappend=None, **kwargs
+        self,
+        master,
+        height=None,
+        minvalue=None,
+        maxvalue=None,
+        variable=None,
+        textvariable=None,
+        textappend=None,
+        wedgesize=None,
+        scale_color=None,
+        wedge_color=None,
+        **kwargs,
     ):
         # params
         self.minvalue = minvalue or -18
@@ -247,12 +258,19 @@ class PitchMeter(tk.Frame):
         self.textappend = textappend or ""
         self._user_supplied_var = False if textvariable is None else True
         self.height = height or self.base_height
-        self.width = round(self.height * 0.14)  # TODO: tweak this later
         self.fontsize = round(self.base_font_size * (self.height / self.base_height))
         self.fontsize_ticks = max(round(self.base_font_size * (self.height / self.base_height) / 2), 14)
-        self.bg = kwargs.get("bg") or "#e5e5e5"
-        self.fg = kwargs.get("fg") or "#343a40"
+        self.scale_color = scale_color or "#e5e5e5"
+        self.wedge_color = wedge_color or "#343a40"
         self.font = kwargs.get("font") or ("Courier", self.fontsize, "italic")
+        self.wedgesize = wedgesize or 5
+
+        # get width automagically out of estimated text width
+        maxw = max(
+            len(f"{self.maxvalue:+.1f}{self.textappend}"),
+            len(f"{self.minvalue:+.1f}{self.textappend}"),
+        )
+        self.width = round(maxw * self.fontsize_ticks * 0.5)
 
         # trace
         self.var.trace_add("write", self.var_changed_cb)
@@ -263,21 +281,17 @@ class PitchMeter(tk.Frame):
         # super
         kwargs["padx"] = 5
         kwargs["pady"] = 5
-        kwargs["bg"] = self.bg
         kwargs["height"] = self.height
         kwargs["width"] = self.width
         super().__init__(master, **kwargs)
 
         # labels
         self.meter = tk.Label(self)
-        maxw = max(
-            len(f"{self.maxvalue:.1f}{self.textappend}") + 1,
-            len(f"{self.minvalue:.1f}{self.textappend}") + 1,
-        )
-        self.label = tk.Label(self, textvariable=self.textvar, anchor="w", width=maxw, font=self.font)
+        self.label = tk.Label(self, textvariable=self.textvar, anchor="center", width=maxw + 1, font=self.font)
 
         # draw
         self.draw_base()
+        self.draw_ticks()
         self.draw_wedge()
 
         # force this callback to update textvar
@@ -288,30 +302,47 @@ class PitchMeter(tk.Frame):
         self.label.pack(expand=True, side="left", anchor="w", padx=(5, 0))
 
     def draw_base(self):
-        h = self.height * self.ss_mult
+        text_max = f"{self.maxvalue:+}{self.textappend}"
+        text_min = f"{self.minvalue:+}{self.textappend}"
         w = self.width * self.ss_mult
+        h = self.height * self.ss_mult
+        bo = self.fontsize_ticks * self.ss_mult
+        self._base_offset = bo
         self.base = Image.new("RGBA", (w, h))
         draw = ImageDraw.Draw(self.base)
         # lines
-        offset = self.fontsize_ticks * self.ss_mult
-        h_line_len = 0.5 * w
-        width = 2 * self.ss_mult
-        draw.line(
-            ((0, offset), (h_line_len, offset), (h_line_len, h - offset), (0, h - offset)),
-            fill=self.fg,
-            width=width,
+        draw.rectangle(
+            (0, bo, w, h - bo),
+            fill=self.scale_color,
+            width=w,
         )
         # labels
         fontsize = self.fontsize_ticks * self.ss_mult
-        text = f"{self.maxvalue:+}{self.textappend}"
-        draw.text((0, 0), text=text, anchor="lt", font_size=fontsize, fill=self.fg)
-        text = f"{self.minvalue:+}{self.textappend}"
-        draw.text((0, h), text=text, anchor="lb", font_size=fontsize, fill=self.fg)
+        draw.text((round(w / 2), 0), text=text_max, anchor="mt", font_size=fontsize, fill=self.wedge_color)
+        draw.text((round(w / 2), h), text=text_min, anchor="mb", font_size=fontsize, fill=self.wedge_color)
+
+    def draw_ticks(self):
+        pass
 
     def draw_wedge(self):
         im = self.base.copy()
         draw = ImageDraw.Draw(im)
-        ...
+        # normalize val based on height and position of base column
+        val = self.value
+        bh = self.height * self.ss_mult
+        bo = self._base_offset
+        w = self.width * self.ss_mult
+        normalized_val = np.interp(val, (self.minvalue, self.maxvalue), (bo, bh - bo))
+        # draw wedge
+        upmostpos = bo / 2
+        botmostpos = bh - bo / 2
+        y = max(upmostpos, min(botmostpos, normalized_val))
+        xy_start = (0, y - bo / 2)
+        xy_end = (w, y + bo / 2)
+        draw.rectangle(
+            (xy_start, xy_end),
+            fill=self.wedge_color,
+        )
         # resize and put on label
         self.meterimage = ImageTk.PhotoImage(im.resize((self.width, self.height), Image.BICUBIC))
         self.meter.configure(image=self.meterimage)
