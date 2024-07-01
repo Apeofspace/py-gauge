@@ -167,7 +167,7 @@ class RadGauge(tk.Frame):
             end = maj_tick + self.major_ticks_step
             if end > self.maxvalue:
                 end = end - (self.maxvalue - end) / min_tick_step
-                break
+                break  # WARN: crutch
             pos_min.extend(np.arange(start, end, min_tick_step))
         for pos in pos_min:
             n_pos = np.interp(pos, (self.minvalue, self.maxvalue), (self.start_deg, self.end_deg))
@@ -242,6 +242,8 @@ class PitchMeter(tk.Frame):
         height=None,
         minvalue=None,
         maxvalue=None,
+        major_ticks_step=None,
+        minor_ticks_per_major=None,
         variable=None,
         textvariable=None,
         textappend=None,
@@ -251,8 +253,8 @@ class PitchMeter(tk.Frame):
         **kwargs,
     ):
         # params
-        self.minvalue = minvalue or -18
-        self.maxvalue = maxvalue or 18
+        self.minvalue = minvalue or -20
+        self.maxvalue = maxvalue or 20
         self.var = variable or tk.DoubleVar(value=self.minvalue)
         self.textvar = textvariable or tk.StringVar()  # TODO: update this value
         self.textappend = textappend or ""
@@ -263,7 +265,9 @@ class PitchMeter(tk.Frame):
         self.scale_color = scale_color or "#e5e5e5"
         self.wedge_color = wedge_color or "#343a40"
         self.font = kwargs.get("font") or ("Courier", self.fontsize, "italic")
-        self.wedgesize = wedgesize or 5
+        self.wedgesize = wedgesize or 2  # this is in percent
+        self.major_ticks_step = major_ticks_step or 5
+        self.minor_ticks_per_major = minor_ticks_per_major or 5
 
         # get width automagically out of estimated text width
         maxw = max(
@@ -277,6 +281,7 @@ class PitchMeter(tk.Frame):
 
         # asserts
         assert self.maxvalue > self.minvalue
+        assert 0 < self.wedgesize < 100
 
         # super
         kwargs["padx"] = 5
@@ -322,7 +327,43 @@ class PitchMeter(tk.Frame):
         draw.text((round(w / 2), h), text=text_min, anchor="mb", font_size=fontsize, fill=self.wedge_color)
 
     def draw_ticks(self):
-        pass
+        draw = ImageDraw.Draw(self.base)
+        bh = self.height * self.ss_mult
+        bo = self._base_offset
+        w = self.width * self.ss_mult
+        # major ticks
+        len_tick = w * 0.6
+        x_st = w / 2 - len_tick / 2
+        x_end = w / 2 + len_tick / 2
+        pos_maj = np.arange(self.minvalue, self.maxvalue + self.major_ticks_step, self.major_ticks_step)
+        for pos in pos_maj:
+            # normalized position
+            n_pos = np.interp(pos, (self.minvalue, self.maxvalue), (bo, bh - bo))
+            draw.line(
+                ((x_st, n_pos), (x_end, n_pos)),
+                width=1 * self.ss_mult,
+                fill=self.wedge_color,
+            )
+        # minor ticks
+        len_tick *= 0.4
+        x_st = w / 2 - len_tick / 2
+        x_end = w / 2 + len_tick / 2
+        min_tick_step = self.major_ticks_step / self.minor_ticks_per_major
+        pos_min = []
+        for maj_tick in pos_maj:
+            start = maj_tick + min_tick_step
+            end = maj_tick + self.major_ticks_step
+            if end > self.maxvalue:
+                end = end - (self.maxvalue - end) / min_tick_step
+                break  # WARN: crutch
+            pos_min.extend(np.arange(start, end, min_tick_step))
+        for pos in pos_min:
+            n_pos = np.interp(pos, (self.minvalue, self.maxvalue), (bo, bh - bo))
+            draw.line(
+                ((x_st, n_pos), (x_end, n_pos)),
+                width=1 * self.ss_mult,
+                fill=self.wedge_color,
+            )
 
     def draw_wedge(self):
         im = self.base.copy()
@@ -332,13 +373,14 @@ class PitchMeter(tk.Frame):
         bh = self.height * self.ss_mult
         bo = self._base_offset
         w = self.width * self.ss_mult
+        wsize = self.wedgesize * 0.01 * bh
         normalized_val = np.interp(val, (self.minvalue, self.maxvalue), (bo, bh - bo))
         # draw wedge
-        upmostpos = bo / 2
-        botmostpos = bh - bo / 2
+        upmostpos = wsize / 2
+        botmostpos = bh - wsize / 2
         y = max(upmostpos, min(botmostpos, normalized_val))
-        xy_start = (0, y - bo / 2)
-        xy_end = (w, y + bo / 2)
+        xy_start = (0, y - wsize / 2)
+        xy_end = (w, y + wsize / 2)
         draw.rectangle(
             (xy_start, xy_end),
             fill=self.wedge_color,
@@ -396,6 +438,12 @@ if __name__ == "__main__":
     # pitchemeter
     pfr = tk.Frame(mainfr)
     PitchMeter(pfr, height=500, variable=var, textappend="\N{DEGREE SIGN}").pack(side="top")
+    PitchMeter(pfr, variable=var, textappend="\N{DEGREE SIGN}", major_ticks_step=2, minor_ticks_per_major=2).pack(
+        side="top", anchor="w"
+    )
+    PitchMeter(
+        pfr, variable=var, maxvalue=1, minvalue=-1, textappend="\N{DEGREE SIGN}", major_ticks_step=1, minor_ticks_per_major=2
+    ).pack(side="top", anchor="w")
     pfr.pack(expand=True, fill="both", side="left")
 
     # star mainloop
