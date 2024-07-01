@@ -168,6 +168,8 @@ class Gauge(tk.Frame):
             start = maj_tick + min_tick_step
             end = maj_tick + self.major_ticks_step
             if end > self.maxvalue:
+                end = end - (self.maxvalue - end) / min_tick_step
+                # end -= min_tick_step
                 break
             pos_min.extend(np.arange(start, end, min_tick_step))
         for pos in pos_min:
@@ -192,13 +194,12 @@ class Gauge(tk.Frame):
         font_size = self.fontsize_ticks * self.ss_mult
         arc_r = (self.box_length * self.ss_mult) * 0.5 - offset
         l_arc_r = arc_r + self.offset
-        # pos_maj = (x for x in range(self.minvalue, self.maxvalue + 1) if x % 5 == 0)
         pos_maj = np.arange(self.minvalue, self.maxvalue + self.major_ticks_step, self.major_ticks_step)
+        # FIX: problem here. if tghe + brings end to overmaxvalue it makes an extra tick and then interp wrongly
         for pos in pos_maj:
             if isinstance(pos, float):
-                text = f"{pos:.2f}{self.textappend}"
-            else:
-                text = f"{pos}{self.textappend}"
+                pos = round(pos, 2)
+            text = f"{pos}{self.textappend}"
             n_pos = np.interp(pos, (self.minvalue, self.maxvalue), (self.start_deg, self.end_deg))
             n_pos = n_pos - 90  # because reasons
             n_pos_rad = np.deg2rad(n_pos)
@@ -240,8 +241,8 @@ if __name__ == "__main__":
 
     var = tk.DoubleVar(value=0)
     Gauge(mainframe, -24, 24, 4, 5, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 500, 30, None, None, 2).pack()
-    Gauge(mainframe, -22, 22, 8, 0, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
-    Gauge(mainframe, -100, 100, 20, 2, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
+    Gauge(mainframe, -22, 23, 8, 0, var, 6, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
+    Gauge(mainframe, -100, 100, 20, 2, var, 1, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
     Gauge(mainframe, -1, 1, 0.1, 1, var, 2, True, "Fira Code", None, "\N{DEGREE SIGN}", 250, 10, None, None, 2).pack()
     tk.Scale(mainframe, variable=var, from_=(-22), to=22, orient="horizontal", resolution=0.1).pack(fill="x")
 
