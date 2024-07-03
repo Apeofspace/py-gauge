@@ -3,8 +3,6 @@ import tkinter as tk
 import numpy as np
 from PIL import Image, ImageDraw, ImageTk
 
-# import tkinter.ttk as ttk
-
 
 class RadGauge(tk.Frame):
 
@@ -232,7 +230,7 @@ class RadGauge(tk.Frame):
 
 class PitchMeter(tk.Frame):
 
-    ss_mult = 2  # supersampling
+    ss_mult = 1  # supersampling
     base_font_size = 16
     base_height = 250
 
@@ -378,7 +376,8 @@ class PitchMeter(tk.Frame):
         bo = self._base_offset
         w = self.width * self.ss_mult
         wsize = self.wedgesize * 0.01 * bh
-        normalized_val = np.interp(val, (self.minvalue, self.maxvalue), (bo, bh - bo))
+        inv_val = (self.maxvalue - val) + self.minvalue
+        normalized_val = np.interp(inv_val, (self.minvalue, self.maxvalue), (bo, bh - bo))
         # draw wedge
         upmostpos = wsize / 2
         botmostpos = bh - wsize / 2
@@ -437,12 +436,12 @@ if __name__ == "__main__":
     RadGauge(
         gfr, -100, 100, 20, 2, var, 1, True, "Fira Code", tk.StringVar(value="Noice!"), None, 250, 10, None, None, 2
     ).pack()
-    RadGauge(gfr, -1, 1, 0.1, 1, var, arc_width=50).pack()
+    RadGauge(gfr, -1, 1, 0.1, 1, var, box_length=350, arc_width=50).pack()
 
     # pitchemeter
     pfr = tk.Frame(mainfr)
     PitchMeter(pfr, height=500, variable=var, textappend="\N{DEGREE SIGN}").pack(side="top")
-    PitchMeter(pfr, variable=var, textappend="\N{DEGREE SIGN}", major_ticks_step=2, minor_ticks_per_major=2).pack(
+    PitchMeter(pfr, variable=var, textappend="\N{DEGREE SIGN}", major_ticks_step=3, minor_ticks_per_major=3).pack(
         side="top", anchor="w"
     )
     PitchMeter(
@@ -451,7 +450,7 @@ if __name__ == "__main__":
         maxvalue=1,
         minvalue=-1,
         textappend="\N{DEGREE SIGN} град",
-        major_ticks_step=1,
+        major_ticks_step=0.5,
         minor_ticks_per_major=2,
         font="Victor Mono",
     ).pack(side="top", anchor="w")
